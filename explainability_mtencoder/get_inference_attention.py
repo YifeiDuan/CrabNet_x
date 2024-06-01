@@ -111,16 +111,16 @@ class SaveOutput:
         for L in range(self.N):
             mod_out = self.outputs[L]
             mat_dims = np.array([mat.shape[0] for mat in mod_out])
-            n_train = len(model.train_loader.dataset)
+            # n_train = len(model.train_loader.dataset)
             n_val = len(model.data_loader.dataset)
-            n_total = n_train + n_val
+            # n_total = n_train + n_val
 
             n_mats = len(mod_out)  # number of output matrices from hook
             bsz = model.data_loader.batch_size  # batch size from data loader
 
-            B_train = len(model.train_loader)  # total number of batches from train data loader
+            # B_train = len(model.train_loader)  # total number of batches from train data loader
             B_val = len(model.data_loader)  # total number of batches from val data loader
-            B = B_train + B_val  # total number of batches from data loader
+            # B = B_train + B_val  # total number of batches from data loader
 
             # Collect batches from validation set
             B = B_val
@@ -142,7 +142,7 @@ class SaveOutput:
             if self.attn_arrays[L].nchunks_initialized == 0:
                 # if the array is empty, then fill the first chunk
                 self.attn_arrays[L][:n_data] = attn_data
-            elif self.attn_arrays[L].nchunks_initialized == B * model.epochs:
+            # elif self.attn_arrays[L].nchunks_initialized == B * model.epochs:
                 # array is filled all the way
                 continue
             else:
@@ -173,10 +173,11 @@ if __name__ == '__main__':
     # print(f'{USER_EMAIL = }')
 
     t0_all = time()
-    data_dir = 'data/benchmark_data'
+    data_dir = '/home/jupyter/YD/MTENCODER/CrabNet__/data/matbench'
+    model_dir = '/home/jupyter/YD/MTENCODER/CrabNet__/models'
     mat_props = os.listdir(data_dir)
 
-    mat_props = ['aflow__Egap']
+    mat_props = ['expt_gap']
 
     for mat_prop in mat_props:
         print(f'currently on mat_prop: {mat_prop}')
@@ -195,43 +196,45 @@ if __name__ == '__main__':
         t0_mp = time()
 
         # set the attention tensor capturing method, either every 'step' or 'epoch'
-        capture_every = 'epoch'
-        allowed_captures = ['step', 'epoch']
+        # capture_every = 'epoch'
+        # allowed_captures = ['step', 'epoch']
 
-        err_msg = f'the "capture_every" keyword should be one of {allowed_captures}!'
-        assert capture_every in allowed_captures, err_msg
+        # err_msg = f'the "capture_every" keyword should be one of {allowed_captures}!'
+        # assert capture_every in allowed_captures, err_msg
 
-        crabnet_params = {'d_model': 512, 'N': 3, 'heads': 4}
-        model = Model(CrabNet(**crabnet_params, compute_device=compute_device).\
-                      to(compute_device),
-                      model_name=f'{mat_prop}',
-                      capture_every=capture_every,
-                      verbose=True)
+        model_json = json.load(open(model_dir + '/task12_trained_models/evaluation_20240403_012921.json'))
+        crabnet = CrabNet(model_json["config"])
+        model_pth = torch.load(model_dir + "/task12_trained_models/task12_30.pth", 
+                            map_location=torch.device('cpu'))
+        crabnet.load_state_dict(model_pth["weights"])
+        model = Model(crabnet,
+                    model_name=f'{mat_prop}',
+                    verbose=True)
 
-        train_data = rf'{data_dir}/{mat_prop}/train.csv'
-        val_data = rf'{data_dir}/{mat_prop}/val.csv'
+        # train_data = rf'{data_dir}/{mat_prop}/train.csv'
+        data = rf'{data_dir}/{mat_prop}.csv'
 
-        data_size = pd.read_csv(train_data).shape[0]
+        data_size = pd.read_csv(data).shape[0]
         batch_size = 2**round(np.log2(data_size)-4)
         if batch_size < 2**7:
             batch_size = 2**7
         if batch_size > 2**10:
             batch_size = 2**10
-        model.load_data(train_data, batch_size=batch_size, train=True)
-        model.load_data(val_data, batch_size=batch_size)
-        print(f'training with batchsize {model.batch_size} '
+        # model.load_data(train_data, batch_size=batch_size, train=True)
+        model.load_data(data, batch_size=batch_size)
+        print(f'using batchsize {model.batch_size} '
               f'(2**{np.log2(model.batch_size):0.2f})')
 
         # Get pertinent information from model
-        n_train = len(model.train_loader.dataset)
+        # n_train = len(model.train_loader.dataset)
         n_val = len(model.data_loader.dataset)
-        n_total = n_train + n_val
+        # n_total = n_train + n_val
 
         bsz = model.data_loader.batch_size  # batch size from data loader
 
-        B_train = len(model.train_loader)  # total number of batches from train data loader
+        # B_train = len(model.train_loader)  # total number of batches from train data loader
         B_val = len(model.data_loader)  # total number of batches from val data loader
-        B = B_train + B_val  # total number of batches from data loader
+        # B = B_train + B_val  # total number of batches from data loader
 
         # Collect batches from validation set
         B = B_val
@@ -249,7 +252,7 @@ if __name__ == '__main__':
         # Set the number of epochs, decide if you want a loss curve to be plotted
         # 10-20 is a pretty good balance between time and first look IMO
         # CUDA out of memory if epochs = 50 if capturing every epoch!
-        epochs = 50
+        epochs = 1  # This is inference, instead of training. So always set epoch = 1
 
         chunks_shape = [n_data, 1, H, n_elements, n_elements]
         chunks_shape = tuple(chunks_shape)
@@ -287,7 +290,7 @@ if __name__ == '__main__':
         #         print(f'sending mail: return {ret}')
         #     except Exception:
         #         traceback.print_exc()
-        model.inference(train_loader)
+        model.inference(model.train_loader)
         print('finished fitting, processing data')
 
         # all outputs for all layers N
