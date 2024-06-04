@@ -52,8 +52,8 @@ class SaveOutput:
         self.stores = [self.init_store(f'{data_save_path}/attn_data_layer{layer}.zarr')
                        for layer in range(self.N)]
         self.roots = [self.init_group(st) for st in self.stores]
-        array_len = attn_shape[0] * steps
-        self.array_shape = tuple([array_len] + list(attn_shape)[1:])
+        array_len = attn_shape[0] * steps       # attn_shape[0] = n_data
+        self.array_shape = tuple([array_len] + list(attn_shape)[1:])        # array_shape = (n_data*steps, 1, H, n_elements, n_elements)
         self.attn_arrays = [self.init_array(
             self.roots[layer],
             self.layer_names[layer],
@@ -107,8 +107,8 @@ class SaveOutput:
                           )
         return array
 
-    def save_zarr(self):
-        for L in range(self.N):
+    def save_zarr(self): # each call of this function is to save a complete run-through of the dataset
+        for L in range(self.N):     # for each layer
             mod_out = self.outputs[L]
             mat_dims = np.array([mat.shape[0] for mat in mod_out])
             # n_train = len(model.train_loader.dataset)
@@ -138,11 +138,12 @@ class SaveOutput:
                 epochs = n_mats // B
 
             attn_data = np.asarray(torch.cat(mod_out, dim=0).unsqueeze(1).cpu().detach())
+            # attn_data.shape = (n_data, 1, H, n_elements, n_elements)
 
             if self.attn_arrays[L].nchunks_initialized == 0:
                 # if the array is empty, then fill the first chunk
                 self.attn_arrays[L][:n_data] = attn_data
-            # elif self.attn_arrays[L].nchunks_initialized == B * model.epochs:
+            elif self.attn_arrays[L].nchunks_initialized == B * model.epochs:
                 # array is filled all the way
                 continue
             else:
@@ -260,10 +261,11 @@ if __name__ == '__main__':
         attn_shape = tuple(attn_shape)
 
         # calculate number of steps
-        if capture_every == 'epoch':
-            steps = epochs
-        elif capture_every == 'step':
-            steps = epochs * B
+        steps = epochs      # for inference, just use epochs (no model update for each batch step within the 1 "epoch")
+        # if capture_every == 'epoch':
+        #     steps = epochs
+        # elif capture_every == 'step':
+        #     steps = epochs * B
 
         save_output = SaveOutput(N=N,
                                  steps=steps,
