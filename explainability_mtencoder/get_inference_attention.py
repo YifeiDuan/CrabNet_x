@@ -45,7 +45,7 @@ class SaveOutput:
         self.acts = []
         self.preds = []
         self.counter = 0
-        self.array_count = 0
+        self.array_count = 0     # +1 each time save_zarr() is called
         self.n = 0
         self.minibatches = len(model.data_loader)
         self.layer_names = [f'layer{layer}' for layer in range(self.N)]
@@ -53,12 +53,17 @@ class SaveOutput:
                        for layer in range(self.N)]
         self.roots = [self.init_group(st) for st in self.stores]
         array_len = attn_shape[0] * steps       # attn_shape[0] = n_data
-        self.array_shape = tuple([array_len] + list(attn_shape)[1:])        # array_shape = (n_data*steps, 1, H, n_elements, n_elements)
+        self.array_shape = tuple([array_len] + list(attn_shape)[1:])        
+        # array_shape = (n_data*steps, 1, H, n_elements, n_elements)
+        # this makes sense only when steps=epochs
+        # chunks_shape = (n_data, 1, H, n_elements, n_elements)
         self.attn_arrays = [self.init_array(
             self.roots[layer],
             self.layer_names[layer],
             self.array_shape,
             chunks_shape) for layer in range(self.N)]  # for each layer
+        
+        self.steps = steps
 
         print(self.array_shape)
         print(self.attn_arrays)
@@ -134,16 +139,20 @@ class SaveOutput:
             n_data = n_val
             n_elements = model.n_elements
 
-            if n_mats != B * model.epochs:
-                epochs = n_mats // B
+            # if n_mats != B * model.epochs:
+            #     epochs = n_mats // B
+            nchunks_total = self.steps   # in the case of steps=epochs
 
             attn_data = np.asarray(torch.cat(mod_out, dim=0).unsqueeze(1).cpu().detach())
             # attn_data.shape = (n_data, 1, H, n_elements, n_elements)
-
+            
+            # determine the slice location to dump attn_data.
+            # Only save 1 chunk for layer L in each call of save_zarr()
+            # For each layer L: a total of self.steps chunks should be saved in the end
             if self.attn_arrays[L].nchunks_initialized == 0:
                 # if the array is empty, then fill the first chunk
                 self.attn_arrays[L][:n_data] = attn_data
-            elif self.attn_arrays[L].nchunks_initialized == B * model.epochs:
+            elif self.attn_arrays[L].nchunks_initialized == nchunks_total:
                 # array is filled all the way
                 continue
             else:
@@ -292,8 +301,7 @@ if __name__ == '__main__':
         #         print(f'sending mail: return {ret}')
         #     except Exception:
         #         traceback.print_exc()
-        model.inference(model.train_loader)
-        print('finished fitting, processing data')
+        model.inference(model.data_loader)
 
         # all outputs for all layers N
         mod_outs = save_output.outputs
