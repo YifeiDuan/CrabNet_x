@@ -307,10 +307,10 @@ if __name__ == '__main__':
         mod_outs = save_output.outputs
 
 
-# %%
+# %% this for loop doesn't ahve any practical effect
 ######################################################################
 ######################################################################
-        for L in range(crabnet_params['N']):
+        for L in range(N):
             # one layer N (here we use layer zero)
             mod_out = mod_outs[L]
 
@@ -318,16 +318,16 @@ if __name__ == '__main__':
 
             mat_dims = np.array([mat.shape[0] for mat in mod_out])
 
-            n_train = len(model.train_loader.dataset)
+            # n_train = len(model.train_loader.dataset)
             n_val = len(model.data_loader.dataset)
-            n_total = n_train + n_val
+            # n_total = n_train + n_val
 
             n_mats = len(mod_out)  # number of output matrices from hook
             bsz = model.data_loader.batch_size  # batch size from data loader
 
-            B_train = len(model.train_loader)  # total number of batches from train data loader
+            # B_train = len(model.train_loader)  # total number of batches from train data loader
             B_val = len(model.data_loader)  # total number of batches from val data loader
-            B = B_train + B_val  # total number of batches from data loader
+            # B = B_train + B_val  # total number of batches from data loader
 
             # Collect batches from validation set
             B = B_val
@@ -347,7 +347,7 @@ if __name__ == '__main__':
 ######################################################################
 
 
-# %%
+# %% save infered attn
         data_loader = model.data_loader
 
         form_out = pd.DataFrame(data=save_output.formulae)
@@ -355,10 +355,10 @@ if __name__ == '__main__':
         form_out = form_out[::N].reset_index(drop=True)
 
         # get final number of epochs from model
-        if capture_every == 'epoch':
-            epochs = model.epoch + 1
-        elif capture_every == 'step':
-            epochs = form_out.shape[0] // B
+        # if capture_every == 'epoch':
+        #     epochs = model.epoch + 1
+        # elif capture_every == 'step':
+        #     epochs = form_out.shape[0] // B
 
         print(f'epochs at the end: {epochs}')
         form_data = np.full(shape=(n_data, epochs), fill_value=np.nan, dtype=object)
@@ -408,8 +408,8 @@ if __name__ == '__main__':
         ti = time()
         # now transforming Zarr arrays into ZIP arrays
         stores = [zarr.open_group(f'{data_save_path}/attn_data_layer{L}.zarr',
-                          mode='r') for L in range(crabnet_params['N'])]
-        array_data = [stores[L][f'layer{L}'] for L in range(crabnet_params['N'])]
+                          mode='r') for L in range(N)]
+        array_data = [stores[L][f'layer{L}'] for L in range(N)]
 
         for layer in tqdm(range(len(array_data)), desc='processing layer'):
             attn_shape = array_data[layer].shape
