@@ -25,6 +25,12 @@ from torch import nn
 
 import json
 
+import sys
+sys.path.append("/home/jpyter/YD/MTENCODER/CrabNet__/")
+
+from publication_CrabNet.benchmark_crabnet import *
+from parameter_study_command import *
+
 
 compute_device = get_compute_device(prefer_last=True)
 
@@ -32,6 +38,79 @@ compute_device = get_compute_device(prefer_last=True)
 # ON_CLUSTER = os.environ.get('ON_CLUSTER')
 # HOME = os.environ.get('HOME')
 # USER_EMAIL = os.environ.get('USER_EMAIL')
+
+
+
+
+
+def load_model_for_infer_attn(config, model_path, gpu, mat_prop):
+    pth_file = find_pth_file(model_path)
+    print(pth_file)
+
+    base_config = \
+        {'model':
+            {'decoder': 'cpd', #opt: cpd, meanpool, roost
+            'd_model': config['model']['d_model'],
+            'N': config['model']['N'],
+            'encoder_ff': config['model']['encoder_ff'],
+            'heads': config['model']['heads'],
+            'residual_nn_dim': config['model']['residual_nn_dim'], #, 256, 128],
+            'branched_ffnn': config['model']['branched_ffnn'],
+            'dropout': 0,
+            'special_tok_zero_fracs': False,  #opt: both, cpd, eos - only set if special tok is used!!
+            'numeral_embeddings': config['model']['numeral_embeddings']}, 
+
+        'trainer':
+            {'swa_start': 0,
+            'n_elements': 'infer',
+            'masking': False,
+            'fraction_to_mask': 0,
+            'cpd_token': config['trainer']['cpd_token'],
+            'eos_token': config['trainer']['eos_token'],
+            'base_lr': 5e-5,
+            'mlm_loss_weight': None, 
+            'delay_scheduler': 0},
+
+        'transfer_model': pth_file.split('.pth')[0],
+        'max_epochs': 4,
+        'sampling_prob': None,
+        'task_types': None,
+        'save_every': 100000, 
+        'data_dir': task_dir,
+        'task_list': None,
+        'eval': True,
+        'wandb': False,
+        'batchsize': None,
+        'gpus': [gpu, [gpu]]
+        }
+    
+    pretrained = base_config['transfer_model']
+
+    classification_list = []
+    classification = False
+    if mat_prop in classification_list:
+        classification = True
+
+    timestamp = generate_prefix()
+    model_name =  model_path + '_' + mat_prop + '_' +  timestamp
+    
+    model = Model(CrabNet(base_config, compute_device=compute_device).to(compute_device),
+                  config, model_name=f'{model_name}', verbose=True)
+
+    # Load network with pretrained weights
+    model.load_network(f'{pretrained}.pth')
+    model.model_name = f'{model_name}'
+    model.model.output_nn.apply(weight_reset) #thorben added
+
+    # Apply BCEWithLogitsLoss to model output if binary classification is True
+    if classification:
+        model.classification = True
+    
+    return model
+
+
+
+
 
 
 # %%
@@ -184,7 +263,11 @@ if __name__ == '__main__':
 
     t0_all = time()
     data_dir = '/home/jupyter/YD/MTENCODER/CrabNet__/data/matbench'
-    model_dir = '/home/jupyter/YD/MTENCODER/CrabNet__/models'
+
+    model_dir = '/home/jupyter/YD/MTENCODER/CrabNet__/models/'
+    model_path = model_dir + "20240325_162526_tasks12/trained_models/Epoch_40"
+    config = get_config(model_path)     # get the correct model config
+
     mat_props = os.listdir(data_dir)
 
     mat_props = ['expt_gap']
@@ -212,14 +295,10 @@ if __name__ == '__main__':
         # err_msg = f'the "capture_every" keyword should be one of {allowed_captures}!'
         # assert capture_every in allowed_captures, err_msg
 
-        model_json = json.load(open(model_dir + '/task12_trained_models/evaluation_20240403_012921.json'))
-        crabnet = CrabNet(model_json["config"])
-        model_pth = torch.load(model_dir + "/task12_trained_models/task12_30.pth", 
-                            map_location=torch.device('cpu'))
-        crabnet.load_state_dict(model_pth["weights"])
-        model = Model(crabnet,
-                    model_name=f'{mat_prop}',
-                    verbose=True)
+        # Load the data with config & the specified task (mat_prop)
+        model = load_model_for_infer_attn(config, model_path, 0, mat_prop)
+
+
 
         # train_data = rf'{data_dir}/{mat_prop}/train.csv'
         data = rf'{data_dir}/{mat_prop}.csv'
