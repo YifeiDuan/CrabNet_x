@@ -16,21 +16,20 @@ from tqdm import tqdm
 from time import time
 from datetime import timedelta
 
-from crabnet.kingcrab import CrabNet
-from crabnet.model import Model
-from utils.get_compute_device import get_compute_device
-
 import torch
 from torch import nn
 
 import json
 
 import sys
-sys.path.append("/home/jpyter/YD/MTENCODER/CrabNet__/")
+sys.path.append("/home/jupyter/YD/MTENCODER/CrabNet__/")
+
+from crabnet.kingcrab import CrabNet
+from crabnet.model import Model
+from utils.get_compute_device import get_compute_device
 
 from publication_CrabNet.benchmark_crabnet import *
 from parameter_study_command import *
-
 
 compute_device = get_compute_device(prefer_last=True)
 
@@ -43,7 +42,7 @@ compute_device = get_compute_device(prefer_last=True)
 
 
 
-def load_model_for_infer_attn(config, model_path, gpu, mat_prop):
+def load_model_for_infer_attn(config, model_path, gpu, data_dir, mat_prop):
     pth_file = find_pth_file(model_path)
     print(pth_file)
 
@@ -76,7 +75,7 @@ def load_model_for_infer_attn(config, model_path, gpu, mat_prop):
         'sampling_prob': None,
         'task_types': None,
         'save_every': 100000, 
-        'data_dir': task_dir,
+        'data_dir': data_dir,
         'task_list': None,
         'eval': True,
         'wandb': False,
@@ -254,6 +253,10 @@ class SaveOutput:
         self.counter = 0
 
 
+
+
+
+
 # %%
 if __name__ == '__main__':
     print('this is __main__!')
@@ -296,7 +299,7 @@ if __name__ == '__main__':
         # assert capture_every in allowed_captures, err_msg
 
         # Load the data with config & the specified task (mat_prop)
-        model = load_model_for_infer_attn(config, model_path, 0, mat_prop)
+        model = load_model_for_infer_attn(config, model_path, 0, data_dir, mat_prop)
 
 
 
