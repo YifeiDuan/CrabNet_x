@@ -85,7 +85,7 @@ def load_model_for_infer_attn(config, model_path, gpu, data_dir, mat_prop):
     
     pretrained = base_config['transfer_model']
 
-    classification_list = []
+    classification_list = ["expt_is_metal", "glass", "mp_is_metal"]
     classification = False
     if mat_prop in classification_list:
         classification = True
@@ -278,7 +278,7 @@ if __name__ == '__main__':
     for mat_prop in mat_props:
         print(f'currently on mat_prop: {mat_prop}')
 
-        data_save_path_orig = f'data_save/{mat_prop}'
+        data_save_path_orig = f'explainability_mtencoder/data_save/{mat_prop}'
         data_save_path = copy(data_save_path_orig)
 
         # if ON_CLUSTER:
@@ -313,7 +313,7 @@ if __name__ == '__main__':
         if batch_size > 2**10:
             batch_size = 2**10
         # model.load_data(train_data, batch_size=batch_size, train=True)
-        model.load_data(data, batch_size=batch_size)
+        model.load_data(data, model.classification, batch_size=batch_size)
         print(f'using batchsize {model.batch_size} '
               f'(2**{np.log2(model.batch_size):0.2f})')
 
