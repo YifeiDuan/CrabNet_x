@@ -89,8 +89,8 @@ class Model():
         self.pred_v = None
         
         if self.verbose:
-            print('\nModel architecture: out_dims, d_model, N, heads')
-            print(f'{self.model.out_dims}, {self.model.d_model}, '
+            print('\nModel architecture: d_model, N, heads')
+            print(f'{self.model.d_model}, '
                   f'{self.model.N}, {self.model.heads}')
             #print(f'Running on compute device: {self.compute_device}')
             print(f'Model size: {count_parameters(self.model)} parameters\n')
