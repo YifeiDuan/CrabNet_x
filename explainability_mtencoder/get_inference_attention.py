@@ -260,9 +260,6 @@ class SaveOutput:
 # %%
 if __name__ == '__main__':
     print('this is __main__!')
-    # print(f'{ON_CLUSTER = }')
-    # print(f'{HOME = }')
-    # print(f'{USER_EMAIL = }')
 
     t0_all = time()
     data_dir = '/home/jupyter/YD/MTENCODER/CrabNet__/data/matbench'
