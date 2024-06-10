@@ -33,6 +33,8 @@ from parameter_study_command import *
 
 compute_device = get_compute_device(prefer_last=True)
 
+main_dir = "/home/jupyter/YD/MTENCODER/CrabNet__/"
+
 # # get environment variables
 # ON_CLUSTER = os.environ.get('ON_CLUSTER')
 # HOME = os.environ.get('HOME')
@@ -262,9 +264,9 @@ if __name__ == '__main__':
     print('this is __main__!')
 
     t0_all = time()
-    data_dir = '/home/jupyter/YD/MTENCODER/CrabNet__/data/matbench'
+    data_dir = main_dir + 'data/matbench'
 
-    model_dir = '/home/jupyter/YD/MTENCODER/CrabNet__/models/'
+    model_dir = main_dir + 'models/'
     model_path = model_dir + "20240325_162526_tasks12/trained_models/Epoch_40"
     config = get_config(model_path)     # get the correct model config
 
@@ -275,7 +277,7 @@ if __name__ == '__main__':
     for mat_prop in mat_props:
         print(f'currently on mat_prop: {mat_prop}')
 
-        data_save_path_orig = f'explainability_mtencoder/data_save/{mat_prop}'
+        data_save_path_orig = main_dir + f'explainability_mtencoder/data_save/{mat_prop}'
         data_save_path = copy(data_save_path_orig)
 
         # if ON_CLUSTER:
