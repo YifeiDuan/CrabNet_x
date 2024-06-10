@@ -135,9 +135,10 @@ class SaveOutput:
         self.roots = [self.init_group(st) for st in self.stores]
         array_len = attn_shape[0] * steps       # attn_shape[0] = n_data
         self.array_shape = tuple([array_len] + list(attn_shape)[1:])        
-        # array_shape = (n_data*steps, 1, H, n_elements, n_elements)
+        # array_shape = (n_data*steps, 1, H, n_elements + 1, n_elements + 1)
         # this makes sense only when steps=epochs
-        # chunks_shape = (n_data, 1, H, n_elements, n_elements)
+        # n_elements + 1 to accomodate the additional cpd token at pos 0
+        # chunks_shape = (n_data, 1, H, n_elements + 1, n_elements + 1)
         self.attn_arrays = [self.init_array(
             self.roots[layer],
             self.layer_names[layer],
@@ -225,7 +226,7 @@ class SaveOutput:
             nchunks_total = self.steps   # in the case of steps=epochs
 
             attn_data = np.asarray(torch.cat(mod_out, dim=0).unsqueeze(1).cpu().detach())
-            # attn_data.shape = (n_data, 1, H, n_elements, n_elements)
+            # attn_data.shape = (n_data, 1, H, n_elements + 1, n_elements + 1)
             
             # determine the slice location to dump attn_data.
             # Only save 1 chunk for layer L in each call of save_zarr()
@@ -346,9 +347,10 @@ if __name__ == '__main__':
         # CUDA out of memory if epochs = 50 if capturing every epoch!
         epochs = 1  # This is inference, instead of training. So always set epoch = 1
 
-        chunks_shape = [n_data, 1, H, n_elements, n_elements]
+        chunks_shape = [n_data, 1, H, n_elements + 1, n_elements + 1]
+        # n_elements + 1 to accomodate the additional cpd token at pos 0
         chunks_shape = tuple(chunks_shape)
-        attn_shape = [n_data, 1, H, n_elements, n_elements]
+        attn_shape = [n_data, 1, H, n_elements + 1, n_elements + 1]
         attn_shape = tuple(attn_shape)
 
         # calculate number of steps
