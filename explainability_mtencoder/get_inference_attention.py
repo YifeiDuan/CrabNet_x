@@ -96,7 +96,8 @@ def load_model_for_infer_attn(config, model_path, gpu, data_dir, mat_prop):
     model_name =  model_path + '_' + mat_prop + '_' +  timestamp
     
     model = Model(CrabNet(base_config, compute_device=compute_device).to(compute_device),
-                  config, model_name=f'{model_name}', verbose=True)
+                  config, model_name=f'{model_name}',
+                  capture_flag=True,  verbose=True)
 
     # Load network with pretrained weights
     model.load_network(f'{pretrained}.pth')

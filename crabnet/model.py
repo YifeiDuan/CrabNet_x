@@ -41,6 +41,7 @@ class Model():
                  config,
                  model_name='UnnamedModel',
                  model_id=None, 
+                 capture_flag=False,
                  capture_every=False,
                  verbose=True,
                  drop_unary=True,
@@ -83,7 +84,7 @@ class Model():
         self.scale = scale
         #if self.compute_device is None:
         #    self.compute_device = get_compute_device()
-        self.capture_flag = False
+        self.capture_flag = capture_flag
         self.formula_current = None
         self.act_v = None
         self.pred_v = None
