@@ -108,7 +108,7 @@ class new_TransformerEncoderLayer(nn.Module):
     __constants__ = ['norm_first']
 
     def __init__(self, d_model: int, nhead: int, dim_feedforward: int = 2048, dropout: float = 0.1,
-                 activation: Union[str, Callable[[torch.Tensor], torch.Tensor]] = F.relu,
+                 activation: Union[str, Callable[[torch.Tensor], torch.Tensor]] = nn.F.relu,
                  layer_norm_eps: float = 1e-5, batch_first: bool = False, norm_first: bool = False,
                  bias: bool = True, device=None, dtype=None) -> None:
         factory_kwargs = {'device': device, 'dtype': dtype}
@@ -144,7 +144,7 @@ class new_TransformerEncoderLayer(nn.Module):
     def __setstate__(self, state):
         super().__setstate__(state)
         if not hasattr(self, 'activation'):
-            self.activation = F.relu
+            self.activation = nn.F.relu
 
 
     def forward(
