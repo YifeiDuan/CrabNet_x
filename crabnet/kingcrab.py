@@ -8,8 +8,8 @@ import copy
 from typing import Optional, Any, Union, Callable
 
 import warnings
+from torch.nn import functional as F
 # from torch import Tensor
-# from torch.nn import functional as F
 # from torch.nn.activation import MultiheadAttention
 # from torch.nn.dropout import Dropout
 # from torch.nn.linear import Linear
@@ -24,9 +24,9 @@ main_dir = "/home/jupyter/YD/MTENCODER/CrabNet__/"
 
 def _get_activation_fn(activation: str) -> Callable[[torch.Tensor], torch.Tensor]:
     if activation == "relu":
-        return nn.F.relu
+        return F.relu
     elif activation == "gelu":
-        return nn.F.gelu
+        return F.gelu
 
     raise RuntimeError(f"activation should be relu/gelu, not {activation}")
 
@@ -108,7 +108,7 @@ class new_TransformerEncoderLayer(nn.Module):
     __constants__ = ['norm_first']
 
     def __init__(self, d_model: int, nhead: int, dim_feedforward: int = 2048, dropout: float = 0.1,
-                 activation: Union[str, Callable[[torch.Tensor], torch.Tensor]] = nn.F.relu,
+                 activation: Union[str, Callable[[torch.Tensor], torch.Tensor]] = F.relu,
                  layer_norm_eps: float = 1e-5, batch_first: bool = False, norm_first: bool = False,
                  bias: bool = True, device=None, dtype=None) -> None:
         factory_kwargs = {'device': device, 'dtype': dtype}
@@ -133,9 +133,9 @@ class new_TransformerEncoderLayer(nn.Module):
 
         # We can't test self.activation in forward() in TorchScript,
         # so stash some information about it instead.
-        if activation is nn.F.relu or isinstance(activation, torch.nn.ReLU):
+        if activation is F.relu or isinstance(activation, torch.nn.ReLU):
             self.activation_relu_or_gelu = 1
-        elif activation is nn.F.gelu or isinstance(activation, torch.nn.GELU):
+        elif activation is F.gelu or isinstance(activation, torch.nn.GELU):
             self.activation_relu_or_gelu = 2
         else:
             self.activation_relu_or_gelu = 0
@@ -144,7 +144,7 @@ class new_TransformerEncoderLayer(nn.Module):
     def __setstate__(self, state):
         super().__setstate__(state)
         if not hasattr(self, 'activation'):
-            self.activation = nn.F.relu
+            self.activation = F.relu
 
 
     def forward(
