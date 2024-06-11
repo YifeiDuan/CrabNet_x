@@ -305,7 +305,7 @@ if __name__ == '__main__':
 
 
         # train_data = rf'{data_dir}/{mat_prop}/train.csv'
-        data = rf'{data_dir}/{mat_prop}.csv'
+        data = f'{data_dir}/{mat_prop}.csv'
 
         data_size = pd.read_csv(data).shape[0]
         batch_size = 2**round(np.log2(data_size)-4)
