@@ -299,11 +299,11 @@ def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
     head_options = list(range(model.model.heads)) + ['average']
     option_texts = [chr(ord('`') + num+1)+")" for num in head_options[:-1]] + ['average']
 
-    elem_Z = symbol_idx_dict_cpd(elem_sym)
+    elem_Z = symbol_idx_dict_cpd[elem_sym]
 
     ##### plot average attn across the dataset for each specified head_option #####
     for idx_plot in range(len(head_options)):
-        head_option = head_option[idx_plot]
+        head_option = head_options[idx_plot]
         option_text = option_texts[idx_plot]
 
         ##### retrieve necessary info for the material data points, one by one
@@ -311,7 +311,8 @@ def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
             if isinstance(head_option, int):
                 map_data = attn_layerX[f"layer{layer}"][idx,0,head_option,:,:]
             else:   # head_option "average"
-                map_data = np.mean(attn_layerX[f"layer{layer}"][idx,0,:,:,:], axis=2)    # average along the head dimension
+                map_data = np.mean(attn_layerX[f"layer{layer}"][idx,0,:,:,:], axis=0)    # average along the head dimension
+                # attn_layerX[f"layer{layer}"][idx,0,:,:,:] is itself reduced from 5-dim to 3-dim, so the head dim changes from 2 to 0
 
             atom_fracs = get_atomic_fracs(data_loader, idx=idx)
             form = get_form(data_loader, idx=idx)
