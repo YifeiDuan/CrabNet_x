@@ -342,3 +342,114 @@ def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
                             if len(val) != 0}
 
         plot(mat_prop, property_tracker, elem_sym=elem_sym, layer=layer, head_option=head_option, option_text=option_text)
+
+
+
+
+def plot_attn_map_formula(database, mat_prop, formula_id=0, elem_sym="CPD", layer=0):
+    """
+    Plot the average (over all formuae in the dataset) attention weights that the specified elem_sym (default: CPD) token 
+    attend to each element. The plot is in the shape of periodic table, with each element patch shaded with attention weights
+    (normalized). Each plot corresponds to one head (call this function once to plot all heads) within the specified layer.
+
+    formula_id (int) is the identifier of any specific formula within the dataset (given by database + mat_prop)
+
+    example args: database="matbench", mat_prop="expt_gap". It specifies a particular dataset that has been inferred for attn
+    """
+
+    ######### Load Data ##########
+    data_dir = main_dir + 'data/' + database
+
+    model_dir = main_dir + 'models/'
+    model_path = model_dir + "20240325_162526_tasks12/trained_models/Epoch_40"
+    config = get_config(model_path)     # get the correct model config
+
+    model = load_model_for_infer_attn(config, model_path, 0, data_dir, mat_prop)
+
+    data = f'{data_dir}/{mat_prop}.csv'
+
+    data_size = pd.read_csv(data).shape[0]
+    batch_size = 2**round(np.log2(data_size)-4)
+    if batch_size < 2**7:
+        batch_size = 2**7
+    if batch_size > 2**10:
+        batch_size = 2**10
+
+    model.load_data(data, model.classification, batch_size=batch_size)
+    data_loader = model.data_loader
+
+    
+    ######### Define the individual formula attn map plot function ###########
+    def plot_map(mat_prop, formula, atoms, attn_map_data, elem_sym="CPD", layer=0, head_option=0, option_text="a)"):
+        # remove all "None" from plotted map
+        atoms = [atom for atom in atoms if atom!='None']
+        attn_map_data = attn_map_data[:len(atoms), :len(atoms)]
+        
+        # plot the heatmap
+        heatmap = sns.heatmap(attn_map_data, cmap=sns.cm.rocket_r, xticklabels=atoms, yticklabels=atoms)
+        plt.title(f"{option_text} Head {head_option}", loc="left")
+        
+        save_dir = main_dir + f'explainability_mtencoder/figures/{mat_prop}/attn_map/{formula}/'
+        os.makedirs(save_dir, exist_ok=True)
+        fig = heatmap.get_figure()
+        fig.savefig(save_dir + f"layer{layer}_head{head_option}.jpg", bbox_inches="tight")
+        
+        plt.show()
+        plt.close()
+    
+
+
+    ########### Process saved attn data and produce plot #############
+    ##### token symbols and mapping to idx #####
+    all_symbols_cpd = ['None', 'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na',
+                'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc',
+                'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga',
+                'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 'Nb',
+                'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb',
+                'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm',
+                'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu',
+                'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl',
+                'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa',
+                'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md',
+                'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg',
+                'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og', 
+                'CPD']
+
+    idx_symbol_dict_cpd = {(i): sym for i, sym in enumerate(all_symbols_cpd)}
+    symbol_idx_dict_cpd = {sym: (i) for i, sym in enumerate(all_symbols_cpd)}
+
+
+    ##### load saved attn data #####
+    attn_layerX = zarr.load(main_dir + f"explainability_mtencoder/data_save/{mat_prop}/attn_data_layer{layer}.zip")
+
+
+    ##### prepare data containers; and config for the plotting #####
+    head_options = list(range(model.model.heads)) + ['average']
+    option_texts = [chr(ord('`') + num+1)+")" for num in head_options[:-1]] + ['average']
+
+    elem_Z = symbol_idx_dict_cpd[elem_sym]
+
+    ##### plot average attn across the dataset for each specified head_option #####
+    for idx_plot in range(len(head_options)):
+        head_option = head_options[idx_plot]
+        option_text = option_texts[idx_plot]
+
+        ##### retrieve necessary info for the material data points, one by one
+        if isinstance(head_option, int):
+            map_data = attn_layerX[f"layer{layer}"][formula_id,0,head_option,:,:]
+        else:   # head_option "average"
+            map_data = np.mean(attn_layerX[f"layer{layer}"][formula_id,0,:,:,:], axis=0)    # average along the head dimension
+            # attn_layerX[f"layer{layer}"][idx,0,:,:,:] is itself reduced from 5-dim to 3-dim, so the head dim changes from 2 to 0
+
+        atom_fracs = get_atomic_fracs(data_loader, idx=formula_id)
+        form = get_form(data_loader, idx=formula_id)
+        atomic_numbers = get_atomic_numbers(data_loader, idx=formula_id).ravel().tolist()
+        atoms = [idx_symbol_dict_cpd[num] for num in atomic_numbers]
+        atom_presence = np.array(atom_fracs > 0)
+        atom_presence[0] = True  # CPD token always considered present
+        mask = atom_presence * atom_presence.T
+        map_data = map_data * mask
+        
+        plot_map(mat_prop, form, atoms, map_data, 
+                elem_sym=elem_sym, layer=layer, 
+                head_option=head_option, option_text=option_text)
