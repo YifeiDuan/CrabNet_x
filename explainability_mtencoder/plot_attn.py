@@ -386,7 +386,8 @@ def plot_attn_map_formula(database, mat_prop, formula_id=0, elem_sym="CPD", laye
         attn_map_data = attn_map_data[:len(atoms), :len(atoms)]
         
         # plot the heatmap
-        heatmap = sns.heatmap(attn_map_data, cmap=sns.cm.rocket_r, xticklabels=atoms, yticklabels=atoms)
+        heatmap = sns.heatmap(attn_map_data, cmap=sns.cm.rocket_r, vmin=0.0, vmax=1.0,
+                              xticklabels=atoms, yticklabels=atoms)
         plt.title(f"{option_text} Head {head_option}", loc="left")
         
         save_dir = main_dir + f'explainability_mtencoder/figures/{mat_prop}/attn_map/{formula}/'
