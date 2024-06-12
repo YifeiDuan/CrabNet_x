@@ -346,11 +346,10 @@ def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
 
 
 
-def plot_attn_map_formula(database, mat_prop, formula_id=0, elem_sym="CPD", layer=0):
+def plot_attn_map_formula(database, mat_prop, formula_id=0, layer=0):
     """
-    Plot the average (over all formuae in the dataset) attention weights that the specified elem_sym (default: CPD) token 
-    attend to each element. The plot is in the shape of periodic table, with each element patch shaded with attention weights
-    (normalized). Each plot corresponds to one head (call this function once to plot all heads) within the specified layer.
+    Plot the attention map showing how each output token attends to each input token, for any specified formula in a dataset, 
+    and at the specified layer. Each head within the layer will produce 1 plot for the formula.
 
     formula_id (int) is the identifier of any specific formula within the dataset (given by database + mat_prop)
 
@@ -380,7 +379,7 @@ def plot_attn_map_formula(database, mat_prop, formula_id=0, elem_sym="CPD", laye
 
     
     ######### Define the individual formula attn map plot function ###########
-    def plot_map(mat_prop, formula, atoms, attn_map_data, elem_sym="CPD", layer=0, head_option=0, option_text="a)"):
+    def plot_map(mat_prop, formula, atoms, attn_map_data, layer=0, head_option=0, option_text="a)"):
         # remove all "None" from plotted map
         atoms = [atom for atom in atoms if atom!='None']
         attn_map_data = attn_map_data[:len(atoms), :len(atoms)]
@@ -428,7 +427,6 @@ def plot_attn_map_formula(database, mat_prop, formula_id=0, elem_sym="CPD", laye
     head_options = list(range(model.model.heads)) + ['average']
     option_texts = [chr(ord('`') + num+1)+")" for num in head_options[:-1]] + ['average']
 
-    elem_Z = symbol_idx_dict_cpd[elem_sym]
 
     ##### plot average attn across the dataset for each specified head_option #####
     for idx_plot in range(len(head_options)):
@@ -451,8 +449,7 @@ def plot_attn_map_formula(database, mat_prop, formula_id=0, elem_sym="CPD", laye
         mask = atom_presence * atom_presence.T
         map_data = map_data * mask
         
-        plot_map(mat_prop, form, atoms, map_data, 
-                elem_sym=elem_sym, layer=layer, 
+        plot_map(mat_prop, form, atoms, map_data, layer=layer, 
                 head_option=head_option, option_text=option_text)
 
 
@@ -461,9 +458,8 @@ def plot_attn_map_formula(database, mat_prop, formula_id=0, elem_sym="CPD", laye
 
 def plot_CPD_attn_all_formulae(database, mat_prop, layer=0):
     """
-    Plot the average (over all formuae in the dataset) attention weights that the specified elem_sym (default: CPD) token 
-    attend to each element. The plot is in the shape of periodic table, with each element patch shaded with attention weights
-    (normalized). Each plot corresponds to one head (call this function once to plot all heads) within the specified layer.
+    Plot how the CPD token output attends to all other elemental tokens within a formula. All formulae within the specified dataset
+    will be plotted one by one
 
     formula_id (int) is the identifier of any specific formula within the dataset (given by database + mat_prop)
 
