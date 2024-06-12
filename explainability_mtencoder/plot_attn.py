@@ -129,7 +129,11 @@ Plotting functions
 """
 def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
     """
-    example args: database="matbench", mat_prop="expt_gap"
+    Plot the average (over all formuae in the dataset) attention weights that the specified elem_sym (default: CPD) token 
+    attend to each element. The plot is in the shape of periodic table, with each element patch shaded with attention weights
+    (normalized). Each plot corresponds to one head (call this function once to plot all heads) within the specified layer.
+
+    example args: database="matbench", mat_prop="expt_gap". It specifies a particular dataset that has been inferred for attn
     """
 
     ######### Load Data ##########
@@ -174,14 +178,15 @@ def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
         rw = 0.9  # rectangle width (rw)
         rh = rw  # rectangle height (rh)
         for row, column, symbol in zip(rows, columns, symbols):
-            row = ptable['row'].max() - row
+        # plot one element after another
+            row = ptable['row'].max() - row     # transform so that row=0 is the bottom of canvas
             cmap = sns.cm.rocket_r
             count_min = elem_tracker.min()
             count_max = elem_tracker.max()
             count_min = 0
             count_max = 1
             norm = Normalize(vmin=count_min, vmax=count_max)
-            count = elem_tracker[symbol]
+            count = elem_tracker[symbol]    # "count" is actually the attn paid to that elem by CPD on average (across formulae)
             if log_scale:
                 norm = Normalize(vmin=np.log(1), vmax=np.log(count_max))
                 if count != 0:
@@ -189,7 +194,7 @@ def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
             color = cmap(norm(count))
             if np.isnan(count):
                 color = 'silver'
-            if row < 3:
+            if row < 3:     # row = 1, 2 are Lanthanides and Actinides
                 row += 0.5
             # element box
             rect = patches.Rectangle((column, row), rw, rh,
@@ -210,6 +215,7 @@ def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
 
             ax.add_patch(rect)
 
+        ### This is to plot the color bar in a heatmap manner ###
         granularity = 20
         for i in range(granularity):
             value = (1-i/(granularity-1))*count_min + (i/(granularity-1)) * count_max
@@ -258,9 +264,9 @@ def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
         ax.axis('off')
 
         plt.draw()
-        save_dir = main_dir + 'explainability_mtencoder/figures/'
+        save_dir = main_dir + f'explainability_mtencoder/figures/{mat_prop}/ptable'
         if save_dir is not None:
-            fig_name = f'{save_dir}/{mat_prop}_{elem_sym}_attn_ptable_layer{layer}_head{head_option}.png'
+            fig_name = f'{save_dir}/{elem_sym}_attn_ptable_layer{layer}_head{head_option}.png'
             os.makedirs(save_dir, exist_ok=True)
             plt.savefig(fig_name, bbox_inches='tight', dpi=300)
 
