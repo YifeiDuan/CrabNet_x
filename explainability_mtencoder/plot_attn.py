@@ -496,7 +496,7 @@ def plot_CPD_attn_all_formulae(database, mat_prop, layer=0):
         
         # plot the heatmap
         heatmap = sns.heatmap(CPD_attn, cmap=sns.cm.rocket_r, cbar=False,
-                        vmin=0.0, vmax=1.0, square=True，
+                        vmin=0.0, vmax=1.0, square=True,
                         xticklabels=atoms, yticklabels=[formula])
         plt.title(f"{option_text} Head {head_option}", loc="left")
         
@@ -564,3 +564,316 @@ def plot_CPD_attn_all_formulae(database, mat_prop, layer=0):
             CPD_attn = map_data[:1, 1:]    # CPD attn on all other tokens, keep 2-dim for plotting
             
             plot_CPD_attn(mat_prop, form, atoms, CPD_attn, layer=layer, head_option=head_option, option_text=option_text)
+
+
+
+
+def plot_CPD_attn_agg_layers(database, mat_prop, n_layers=3):
+    ######### Load Data ##########
+    data_dir = main_dir + 'data/' + database
+
+    model_dir = main_dir + 'models/'
+    model_path = model_dir + "20240325_162526_tasks12/trained_models/Epoch_40"
+    config = get_config(model_path)     # get the correct model config
+
+    model = load_model_for_infer_attn(config, model_path, 0, data_dir, mat_prop)
+
+    data = f'{data_dir}/{mat_prop}.csv'
+
+    data_size = pd.read_csv(data).shape[0]
+    batch_size = 2**round(np.log2(data_size)-4)
+    if batch_size < 2**7:
+        batch_size = 2**7
+    if batch_size > 2**10:
+        batch_size = 2**10
+
+    model.load_data(data, model.classification, batch_size=batch_size)
+    data_loader = model.data_loader
+
+    ######### Define the individual formula CPD attn plot function ###########
+    def plot_CPD_attn(mat_prop, formula, atoms, CPD_attn):
+        # remove all "None" from plotted map
+        atoms = [atom for atom in atoms if (atom!='None')and(atom!='CPD')]
+        CPD_attn = CPD_attn[:, :len(atoms)]
+
+        # plot the heatmap
+        heatmap = sns.heatmap(CPD_attn, cmap=sns.cm.rocket_r, cbar=False,
+                            vmin=0.0, vmax=1.0, square=True,
+                            xticklabels=atoms, yticklabels=[formula])
+        plt.title(f"{mat_prop}", loc="left")
+
+        save_dir = main_dir + f'explainability_mtencoder/figures/{mat_prop}/CPD_attn_agg_layers/'
+        os.makedirs(save_dir, exist_ok=True)
+        fig = heatmap.get_figure()
+        fig.savefig(save_dir + f"{formula}.jpg", bbox_inches="tight")
+
+        plt.show()
+        plt.close()
+    
+    ########### Process saved attn data and produce plot #############
+    ##### token symbols and mapping to idx #####
+    all_symbols_cpd = ['None', 'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na',
+                'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc',
+                'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga',
+                'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 'Nb',
+                'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb',
+                'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm',
+                'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu',
+                'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl',
+                'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa',
+                'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md',
+                'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg',
+                'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og', 
+                'CPD']
+
+    idx_symbol_dict_cpd = {(i): sym for i, sym in enumerate(all_symbols_cpd)}
+    symbol_idx_dict_cpd = {sym: (i) for i, sym in enumerate(all_symbols_cpd)}
+
+
+    ##### load saved attn data #####
+    attn_all_layers = []
+    for layer in range(n_layers):
+        attn_layerX = zarr.load(main_dir + f"explainability_mtencoder/data_save/{mat_prop}/attn_data_layer{layer}.zip")
+        attn_all_layers.append(attn_layerX)
+
+
+    ##### plot average attn across the dataset for each specified head_option #####
+    for idx in range(len(data_loader.dataset)):
+
+        ##### retrieve necessary info for the material data points, one by one
+        atom_fracs = get_atomic_fracs(data_loader, idx=idx)
+        form = get_form(data_loader, idx=idx)
+        atomic_numbers = get_atomic_numbers(data_loader, idx=idx).ravel().tolist()
+        atoms = [idx_symbol_dict_cpd[num] for num in atomic_numbers]
+        atom_presence = np.array(atom_fracs > 0)
+        atom_presence[0] = True  # CPD token always considered present
+        mask = atom_presence * atom_presence.T
+        
+        ### get attn maps for all layers ###
+        agg_attn_map = np.eye(attn_all_layers[0]["layer0"].shape[-1])   
+        # initialize aggregated attn map with identity matrix of dim=sequence_length
+        for layer in range(n_layers):
+            layer_attn_map = np.mean(attn_all_layers[layer][f"layer{layer}"][idx,0,:,:,:], axis=0)
+            # this is the current layer attn map for this formula, averaged over all heads
+            # attn_layerX[f"layer{layer}"][idx,0,:,:,:] is itself reduced from 5-dim to 3-dim, 
+            # so the head dim changes from 2 to 0
+            
+            agg_attn_map = np.matmul(layer_attn_map, agg_attn_map)
+            # matrix multiplication to get: how current layer output tokens attend to each initial input token
+        
+        agg_CPD_attn = agg_attn_map[:1, 1:]   # only preserve how CPD token attends to other elemental tokens
+        
+        plot_CPD_attn(mat_prop, form, atoms, agg_CPD_attn)
+
+
+
+
+
+def plot_ptable_agg_layers(database, mat_prop, elem_sym="CPD", n_layers=3):
+    ######### Load Data ##########
+    data_dir = main_dir + 'data/' + database
+
+    model_dir = main_dir + 'models/'
+    model_path = model_dir + "20240325_162526_tasks12/trained_models/Epoch_40"
+    config = get_config(model_path)     # get the correct model config
+
+    model = load_model_for_infer_attn(config, model_path, 0, data_dir, mat_prop)
+
+    data = f'{data_dir}/{mat_prop}.csv'
+
+    data_size = pd.read_csv(data).shape[0]
+    batch_size = 2**round(np.log2(data_size)-4)
+    if batch_size < 2**7:
+        batch_size = 2**7
+    if batch_size > 2**10:
+        batch_size = 2**10
+
+    model.load_data(data, model.classification, batch_size=batch_size)
+    data_loader = model.data_loader
+
+    ######### Define the individual formula CPD attn plot function ###########
+    def plot(mat_prop, property_tracker, elem_sym="CPD"):
+        ptable = pd.read_csv(main_dir + 'data/element_properties/ptable.csv')
+        ptable.index = ptable['symbol'].values
+        elem_tracker = ptable['count']
+        n_row = ptable['row'].max()
+        n_column = ptable['column'].max()
+
+        elem_tracker = elem_tracker + pd.Series(property_tracker)
+
+        # log_scale = True
+        log_scale = False
+
+        fig, ax = plt.subplots(figsize=(n_column, n_row))
+        rows = ptable['row']
+        columns = ptable['column']
+        symbols = ptable['symbol']
+        rw = 0.9  # rectangle width (rw)
+        rh = rw  # rectangle height (rh)
+        for row, column, symbol in zip(rows, columns, symbols):
+        # plot one element after another
+            row = ptable['row'].max() - row     # transform so that row=0 is the bottom of canvas
+            cmap = sns.cm.rocket_r
+            count_min = elem_tracker.min()
+            count_max = elem_tracker.max()
+            count_min = 0
+            count_max = 1
+            norm = Normalize(vmin=count_min, vmax=count_max)
+            count = elem_tracker[symbol]    # "count" is actually the attn paid to that elem by CPD on average (across formulae)
+            if log_scale:
+                norm = Normalize(vmin=np.log(1), vmax=np.log(count_max))
+                if count != 0:
+                    count = np.log(count)
+            color = cmap(norm(count))
+            if np.isnan(count):
+                color = 'silver'
+            if row < 3:     # row = 1, 2 are Lanthanides and Actinides
+                row += 0.5
+            # element box
+            rect = patches.Rectangle((column, row), rw, rh,
+                                    linewidth=1.5,
+                                    edgecolor='gray',
+                                    facecolor=color,
+                                    alpha=1)
+            # plot element text
+            text = plt.text(column+rw/2, row+rw/2, symbol,
+                    horizontalalignment='center',
+                    verticalalignment='center',
+                    fontsize=22,
+                    fontweight='semibold', color='white')
+
+            text.set_path_effects([path_effects.Stroke(linewidth=3,
+                                                    foreground='#030303'),
+                        path_effects.Normal()])
+
+            ax.add_patch(rect)
+
+        ### This is to plot the color bar in a heatmap manner ###
+        granularity = 20
+        for i in range(granularity):
+            value = (1-i/(granularity-1))*count_min + (i/(granularity-1)) * count_max
+            if log_scale:
+                if value != 0:
+                    value = np.log(value)
+            color = cmap(norm(value))
+            length = 9
+            x_offset = 3.5
+            y_offset = 7.8
+            x_loc = i/(granularity) * length + x_offset
+            width = length / granularity
+            height = 0.35
+            rect = patches.Rectangle((x_loc, y_offset), width, height,
+                                    linewidth=1.5,
+                                    edgecolor='gray',
+                                    facecolor=color,
+                                    alpha=1)
+
+            if i in [0, 4, 9, 14, 19]:
+                text = f'{value:0.2f}'
+                if log_scale:
+                    text = f'{np.exp(value):0.1e}'.replace('+', '')
+                plt.text(x_loc+width/2, y_offset-0.4, text,
+                        horizontalalignment='center',
+                        verticalalignment='center',
+                        fontweight='semibold',
+                        fontsize=20, color='k')
+
+            ax.add_patch(rect)
+
+        legend_title = f'{elem_sym}, Average Attention ({mat_prop})'
+        plt.text(x_offset+length/2, y_offset+0.7,
+                f'log({legend_title})' if log_scale else legend_title,
+                horizontalalignment='center',
+                verticalalignment='center',
+                fontweight='semibold',
+                fontsize=20, color='k')
+        # add annotation for subfigure numbering
+        plt.text(0.55, n_row+.1, "Aggregated attention",
+                fontweight='semibold', fontsize=38, color='k')
+        ax.set_ylim(-0.15, n_row+.1)
+        ax.set_xlim(0.85, n_column+1.1)
+
+        # fig.patch.set_visible(False)
+        ax.axis('off')
+
+        plt.draw()
+        save_dir = main_dir + f'explainability_mtencoder/figures/{mat_prop}/ptable_agg_layers'
+        if save_dir is not None:
+            fig_name = f'{save_dir}/{elem_sym}_attn_ptable.png'
+            os.makedirs(save_dir, exist_ok=True)
+            plt.savefig(fig_name, bbox_inches='tight', dpi=300)
+
+        plt.pause(0.001)
+        plt.close()
+    
+    ########### Process saved attn data and produce plot #############
+    ##### token symbols and mapping to idx #####
+    all_symbols_cpd = ['None', 'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na',
+                'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', 'Sc',
+                'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga',
+                'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y', 'Zr', 'Nb',
+                'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb',
+                'Te', 'I', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', 'Pm',
+                'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu',
+                'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl',
+                'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', 'Pa',
+                'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md',
+                'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', 'Rg',
+                'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og', 
+                'CPD']
+
+    idx_symbol_dict_cpd = {(i): sym for i, sym in enumerate(all_symbols_cpd)}
+    symbol_idx_dict_cpd = {sym: (i) for i, sym in enumerate(all_symbols_cpd)}
+
+    ##### prepare data containers; and config for the plotting #####
+    other_dict = {i: [] for i in range(1, 120)}
+
+    elem_Z = symbol_idx_dict_cpd[elem_sym]
+        
+
+    ##### load saved attn data #####
+    attn_all_layers = []
+    for layer in range(n_layers):
+        attn_layerX = zarr.load(main_dir + f"explainability_mtencoder/data_save/{mat_prop}/attn_data_layer{layer}.zip")
+        attn_all_layers.append(attn_layerX)
+
+
+    ##### plot average attn across the dataset for each specified head_option #####
+    for idx in range(len(data_loader.dataset)):
+
+        ##### retrieve necessary info for the material data points, one by one
+        atom_fracs = get_atomic_fracs(data_loader, idx=idx)
+        form = get_form(data_loader, idx=idx)
+        atomic_numbers = get_atomic_numbers(data_loader, idx=idx).ravel().tolist()
+        atoms = [idx_symbol_dict_cpd[num] for num in atomic_numbers]
+        atom_presence = np.array(atom_fracs > 0)
+        atom_presence[0] = True  # CPD token always considered present
+        mask = atom_presence * atom_presence.T
+        
+        ### get attn maps for all layers and aggregate ###
+        agg_attn_map = np.eye(attn_all_layers[0]["layer0"].shape[-1])   
+        # initialize aggregated attn map with identity matrix of dim=sequence_length
+        for layer in range(n_layers):
+            layer_attn_map = np.mean(attn_all_layers[layer][f"layer{layer}"][idx,0,:,:,:], axis=0)
+            # this is the current layer attn map for this formula, averaged over all heads
+            # attn_layerX[f"layer{layer}"][idx,0,:,:,:] is itself reduced from 5-dim to 3-dim, 
+            # so the head dim changes from 2 to 0
+            
+            agg_attn_map = np.matmul(layer_attn_map, agg_attn_map)
+            # matrix multiplication to get: how current layer output tokens attend to each initial input token
+        
+        ### record attention paid to input element tokens ###
+        if elem_Z in atomic_numbers:
+            row = atomic_numbers.index(elem_Z)
+            for atomic_number in atomic_numbers:
+                if atomic_number == 0:
+                    continue
+                col = atomic_numbers.index(atomic_number)
+                # get the raw attention value
+                other_dict[atomic_number].append(agg_attn_map[row, col])
+        
+    property_tracker = {all_symbols_cpd[key]: np.array(val).mean() for key, val
+                            in other_dict.items()
+                            if len(val) != 0}
+        
+    plot(mat_prop, property_tracker, elem_sym=elem_sym)
