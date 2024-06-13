@@ -299,9 +299,7 @@ def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
     attn_layerX = zarr.load(main_dir + f"explainability_mtencoder/data_save/{mat_prop}/attn_data_layer{layer}.zip")
 
 
-    ##### prepare data containers; and config for the plotting #####
-    other_dict = {i: [] for i in range(1, 120)}
-
+    ##### config for the plotting #####
     head_options = list(range(model.model.heads)) + ['average']
     option_texts = [chr(ord('`') + num+1)+")" for num in head_options[:-1]] + ['average']
 
@@ -311,6 +309,8 @@ def plot_attn_ptable(database, mat_prop, elem_sym="CPD", layer=0):
     for idx_plot in range(len(head_options)):
         head_option = head_options[idx_plot]
         option_text = option_texts[idx_plot]
+        
+        other_dict = {i: [] for i in range(1, 120)}     # data container
 
         ##### retrieve necessary info for the material data points, one by one
         for idx in range(len(data_loader.dataset)):
