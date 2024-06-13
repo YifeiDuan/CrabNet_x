@@ -495,10 +495,9 @@ def plot_CPD_attn_all_formulae(database, mat_prop, layer=0):
         CPD_attn = CPD_attn[:, :len(atoms)]
         
         # plot the heatmap
-        sns.set(rc={'figure.figsize':(len(atoms)+3, 2)})
         heatmap = sns.heatmap(CPD_attn, cmap=sns.cm.rocket_r, cbar=False,
-                            vmin=0.0, vmax=1.0,
-                            xticklabels=atoms, yticklabels=[formula])
+                        vmin=0.0, vmax=1.0, square=True，
+                        xticklabels=atoms, yticklabels=[formula])
         plt.title(f"{option_text} Head {head_option}", loc="left")
         
         save_dir = main_dir + f'explainability_mtencoder/figures/{mat_prop}/CPD_attn/{formula}/'
