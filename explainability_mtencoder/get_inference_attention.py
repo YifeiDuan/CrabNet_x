@@ -21,6 +21,9 @@ from torch import nn
 
 import json
 
+import argparse, yaml
+import os
+
 import sys
 sys.path.append("/home/jupyter/YD/MTENCODER/CrabNet__/")
 
@@ -266,15 +269,30 @@ if __name__ == '__main__':
     print('this is __main__!')
 
     t0_all = time()
-    data_dir = main_dir + 'data/matbench'
+
+    parser = argparse.ArgumentParser()
+    # parser.add_argument('--database', default='data/matbench')
+    # parser.add_argument('--model_subdir', default="20240325_162526_tasks12/trained_models/Epoch_40")
+    # parser.add_argument('--mat_props' ,default=['expt_gap'])
+    parser.add_argument('--database', default='data/ionics')
+    parser.add_argument('--model_subdir', default="liverpool_ionics/trained_models/Epoch_43")
+    parser.add_argument('--mat_props' ,default=['liverpool_ionics/test0'])
+
+    args = parser.parse_args()
+
+    database = args.database
+    model_subdir = args.model_subdir
+    mat_props = args.mat_props
+
+    data_dir = main_dir + database
 
     model_dir = main_dir + 'models/'
-    model_path = model_dir + "20240325_162526_tasks12/trained_models/Epoch_40"
+    model_path = model_dir + model_subdir
     config = get_config(model_path)     # get the correct model config
 
-    mat_props = os.listdir(data_dir)
+    # mat_props = os.listdir(data_dir)
 
-    mat_props = ['expt_gap']
+    # mat_props = ['expt_gap']
 
     for mat_prop in mat_props:
         print(f'currently on mat_prop: {mat_prop}')

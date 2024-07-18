@@ -877,12 +877,12 @@ def plot_ptable_agg_layers(database, mat_prop, elem_sym="CPD", n_layers=3):
                             if len(val) != 0}
         
     plot(mat_prop, property_tracker, elem_sym=elem_sym)
-    
 
 
 
 
-def plot_ptable_agg_layers_head(database, mat_prop, elem_sym="CPD", n_layers=3):
+
+def plot_ptable_agg_layers_heads(database, mat_prop, elem_sym="CPD", n_layers=3):
     ######### Load Data ##########
     data_dir = main_dir + 'data/' + database
 
