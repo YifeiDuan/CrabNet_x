@@ -276,8 +276,8 @@ if __name__ == '__main__':
     # parser.add_argument('--mat_props' ,default=['expt_gap'])
     parser.add_argument('--database', default='data/ionics')
     parser.add_argument('--model_subdir', default="liverpool_ionics/trained_models/Epoch_43")
-    parser.add_argument('--mat_props' ,default=['liverpool_ionics/test0'])
-
+    parser.add_argument('--mat_props', nargs='+', help='List of mat props')
+ 
     args = parser.parse_args()
 
     database = args.database
@@ -324,8 +324,8 @@ if __name__ == '__main__':
 
         # train_data = rf'{data_dir}/{mat_prop}/train.csv'
         data = f'{data_dir}/{mat_prop}.csv'
-
         data_size = pd.read_csv(data).shape[0]
+
         batch_size = 2**round(np.log2(data_size)-4)
         if batch_size < 2**7:
             batch_size = 2**7
@@ -333,7 +333,8 @@ if __name__ == '__main__':
             batch_size = 2**10
         # model.load_data(train_data, batch_size=batch_size, train=True)
         model.load_data(data, model.classification, batch_size=batch_size)
-        print(f'using batchsize {model.batch_size} '
+        print(f'Dataset size {len(model.data_loader.dataset)} '
+              f'using batchsize {model.batch_size} '
               f'(2**{np.log2(model.batch_size):0.2f})')
 
         # Get pertinent information from model
